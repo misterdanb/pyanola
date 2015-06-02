@@ -27,5 +27,10 @@ class Analyzer():
             cv2.imshow('stripped image', imgStripped)
             cv2.waitKey(0)
 
-        return img
+        contours, h = cv2.findContours(imgStripped, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        convex_contours = [ cv2.convexHull(c) for c in contours ]
+
+        return { "width": img.shape[1], \
+                 "height": img.shape[0], \
+                 "objects": convex_contours }
 
