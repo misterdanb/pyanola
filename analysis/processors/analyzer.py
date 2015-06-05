@@ -30,7 +30,9 @@ class Analyzer():
         contours, h = cv2.findContours(imgStripped, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         convex_contours = [ cv2.convexHull(c) for c in contours ]
 
+        coords_only = [ [ (e[0][0], e[0][1]) for e in c ] for c in convex_contours ]
+
         return { "width": img.shape[1], \
                  "height": img.shape[0], \
-                 "objects": convex_contours }
+                 "objects": coords_only }
 

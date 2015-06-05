@@ -22,14 +22,14 @@ l_data = levelizer.process(a_data)
 cv2.imshow('detected role structure', img)
 cv2.waitKey(0)
 
-for line in l_data:
+for line in l_data["lines"]:
     print("##############################################")
     print("### " + str(line[0]))
     print("##############################################")
-    print(line)
 
     for c in line[1]:
-        cv2.drawContours(img, [c], 0, (0, 0, 0), -1)
+        npc = np.array([ [[e[0], e[1]]] for e in c ])
+        cv2.drawContours(img, [npc], 0, (0, 0, 0), -1)
 
     cv2.imshow('detected role structure', img)
     cv2.waitKey(0) 
