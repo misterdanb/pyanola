@@ -1,26 +1,38 @@
-from analysis import *
-
 import os
+import logging
 import toml
 import numpy as np
 import operator
-import logging
+import log
 import cv2
 
 class Levelizer():
+    CONFIG_FILE = "levelizer.conf"
+    
     def __init__(self):
-        self.config = toml.load(LEVELIZER_CONFIG)
+        self.config = toml.load(Levelizer.CONFIG_FILE)
+        self.logger = logging.getLogger("pyanola.analysis.levelizer")
         self.debug = self.config["settings"]["debug"]
-        self.logger = logging.getLogger("levelizer")
-        self.scanner_height = self.config["scanner"]["height"]
+
+        if self.debug:
+            self.logger.setLevel(logging.DEBUG)
+
+        self.scanner_height_scale = self.config["scanner"]["height_scale"]
         self.scanner_step = self.config["scanner"]["step"]
         self.height_scale = 1
 
     def process(self, data):
+        self._prepare(data)
         matched = self._process_stage_1(data)
         matched = self._process_stage_2(matched)
 
         return matched
+
+    def _prepare(self, data):
+        self.scanner_height = max([
+            (max([ e[1] for e in o ]) -
+             min([ e[1] for e in o ])) for o in data["objects"]
+        ])
 
     def _process_stage_1(self, data):
         self.logger.info("Entering levelizing stage 1 (matching lines)")
@@ -85,7 +97,7 @@ class Levelizer():
         matched = []
 
         for o in objects:
-            if self._in_bounds(i, i + self.scanner_height * self.height_scale, o):
+            if self._in_bounds(i, i + self.scanner_height * self.scanner_height_scale, o):
                 matched.append(o)
 
         return matched
