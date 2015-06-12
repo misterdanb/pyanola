@@ -9,6 +9,7 @@ class Analyzer():
     CONFIG_FILE= "analyzer.conf"
 
     METHOD_BACKGROUND_RECONITION = "background_recognition"
+    METHOD_CANNY_EDGES = "canny_edges"
 
     def __init__(self):
         self.config = toml.load(Analyzer.CONFIG_FILE)
@@ -19,13 +20,17 @@ class Analyzer():
             self.logger.setLevel(logging.DEBUG)
 
     def process(self, img):
+        self.logger.info("Entering analyzing stage")
+
         if self.config["settings"]["method"] == Analyzer.METHOD_BACKGROUND_RECONITION:
             return self._process_background_recognition(img)
+        elif self.config["settings"]["method"] == Analyzer.METHOD_CANNY_EDGES:
+            return self._process_canny_edges(img)
         else:
             raise("No such analyzing method!")
 
     def _process_background_recognition(self, img):
-        self.logger.info("Entering analyzing stage")
+        self.logger.info("Using method \"background recognition\"")
 
         # todo: rotate image, so it's perfectly aligned horizontally
         lower_variance = np.array(self.config["thresholds"]["lower_variance"])
@@ -59,6 +64,24 @@ class Analyzer():
         return { "width": img.shape[1], \
                  "height": img.shape[0], \
                  "objects": coords_only }
+
+    def _process_canny_edges(self, img):
+        self.logger.info("Using method \"canny edges\"")
+
+        imgGray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+        edges = cv2.Canny(imgGray, 120, 140)
+
+        if self.debug: 
+            cv2.imshow('canny image', edges)
+            cv2.waitKey(0)
+
+        contours, h = cv2.findContours(edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+        for contour in contours:
+            cv2.drawContours(img, [contour], 0, (0, 0, 255), 3)
+            cv2.imshow('', img)
+            cv2.waitKey(0)
+        cv2.imshow('', img)
+        cv2.waitKey(0)
 
     def _remove_big_objects(self, contours, mean_area):
         max_area_factor = self.config["thresholds"]["max_area_factor"]
