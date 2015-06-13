@@ -26,14 +26,19 @@ cv2.imshow('detected role structure', img)
 cv2.waitKey(0)
 
 for line in l_data["lines"]:
-    #print("##############################################")
-    #print("### " + str(line[0]))
-    #print("##############################################")
+    print("##############################################")
+    print("### " + str(line["level"]))
+    print("##############################################")
     #print(line[1])
 
-    for c in line[1]:
+    for c in line["objects"]:
         npc = np.array([ [[e[0], e[1]]] for e in c ])
         cv2.drawContours(img, [npc], 0, (0, 0, 0), -1)
+
+    for i in range(0, l_data["height"], levelizer.scanner_height):
+        p1 = (0, i)
+        p2 = (800, i)
+        cv2.line(img, p1, p2, (0, 0, 255))
 
     cv2.imshow('detected role structure', img)
     cv2.waitKey(0) 

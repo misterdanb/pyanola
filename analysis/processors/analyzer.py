@@ -6,7 +6,7 @@ import operator
 import cv2
 
 class Analyzer():
-    CONFIG_FILE= "analyzer.conf"
+    CONFIG_FILE = "analyzer.conf"
 
     METHOD_BACKGROUND_RECONITION = "background_recognition"
     METHOD_CANNY_EDGES = "canny_edges"
@@ -61,11 +61,16 @@ class Analyzer():
 
         coords_only = [ [ (e[0][0], e[0][1]) for e in c ] for c in contours ]
 
-        return { "width": img.shape[1], \
-                 "height": img.shape[0], \
-                 "objects": coords_only }
+        data = {}
+
+        data["width"] = img.shape[1]
+        data["height"] = img.shape[0]
+        data["objects"] = coords_only
+
+        return data
 
     def _process_canny_edges(self, img):
+        # DO NOT USE RIGHT NOW
         self.logger.info("Using method \"canny edges\"")
 
         imgGray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
@@ -76,10 +81,12 @@ class Analyzer():
             cv2.waitKey(0)
 
         contours, h = cv2.findContours(edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+
         for contour in contours:
             cv2.drawContours(img, [contour], 0, (0, 0, 255), 3)
             cv2.imshow('', img)
             cv2.waitKey(0)
+
         cv2.imshow('', img)
         cv2.waitKey(0)
 

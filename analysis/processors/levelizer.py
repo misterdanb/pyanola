@@ -25,13 +25,13 @@ class Levelizer():
         self._prepare(data)
         matched = self._process_stage_1(data)
         matched = self._process_stage_2(matched)
+        mapped_lines = self._process_stage_3(matched)
 
-        return matched
+        return mapped_lines
 
     def _prepare(self, data):
         self.scanner_height = max([
-            (max([ e[1] for e in o ]) -
-             min([ e[1] for e in o ])) for o in data["objects"]
+            self._object_size(o)[1] for o in data["objects"]
         ])
 
     def _process_stage_1(self, data):
@@ -47,7 +47,13 @@ class Levelizer():
 
             if len(matched) < len(last_matched):
                 if not falling:
-                    matched_lines.append((i - 1, last_matched))
+                    line = {}
+
+                    line["position"] = i - 1
+                    line["objects"] = last_matched
+
+                    matched_lines.append(line)
+
                     falling = True
             else:
                 falling = False
@@ -61,27 +67,24 @@ class Levelizer():
     def _process_stage_2(self, data):
         self.logger.info("Entering levelizing stage 2 (rescue lost objects)")
 
-        lines_only = map(lambda x: x[1], data["lines"])
-        matched_objects = reduce(operator.add, lines_only)
+        line_objects_only = [ x["objects"] for x in data["lines"] ]
+        matched_objects = reduce(operator.add, line_objects_only)
         lost_objects = [ x for x in data["objects"] if x not in matched_objects ]
 
         self.logger.info("Objects: " + str(len(data["objects"])) + "\n" +
                          "Matched: " + str(len(matched_objects)) + "\n" +
                          "Lost: " + str(len(lost_objects)))
 
-        reduce_object = lambda o: reduce(lambda c1, c2: (c1[0] + c2[0], c1[1] + c2[1]), o)
-        mean_y = lambda o: float(reduce_object(o)[1]) / len(o)
-
         for o in lost_objects:
             min_val = data["height"]
             min_line = None
 
-            mean_object_y = mean_y(o)
+            mean_object_y = self._object_mean(o)[1]
 
             for l in data["lines"]:
                 mean_line_y = reduce(lambda y1, y2:
                     y1 + y2, map(lambda lo:
-                        mean_y(lo), l[1])) / len(l[1])
+                        self._object_mean(lo)[1], l["objects"])) / len(l["objects"])
                 mean_y_dist = abs(mean_object_y - mean_line_y)
 
                 if mean_y_dist < min_val:
@@ -89,9 +92,36 @@ class Levelizer():
                     min_line = l
 
             if min_line != None:
-                min_line[1].append(o)
+                min_line["objects"].append(o)
 
         return data
+
+    def _process_stage_3(self, data):
+        self.logger.info("Entering levelizing stage 3 (assigning levels)")
+
+        # this is not a good way to do it
+        # todo: intelligent algorithm
+        for line in data["lines"]:
+            line["level"] = line["position"] / self.scanner_height
+
+        return data
+
+    def _reduce_object(self, o):
+        return reduce(lambda c1, c2: (c1[0] + c2[0], c1[1] + c2[1]), o)
+
+    def _object_mean(self, o):
+        reduced = self._reduce_object(o)
+
+        return (float(reduced[0]) / len(o), float(reduced[1]) / len(o))
+
+    def _object_size(sefl, o):
+        object_x_values = [ c[0] for c in o ]
+        object_y_values = [ c[1] for c in o ]
+
+        width = max(object_x_values) - min(object_x_values)
+        height = max(object_y_values) - min(object_y_values)
+
+        return (width, height)
 
     def _matching_objects(self, i, objects):
         matched = []
