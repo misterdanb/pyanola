@@ -26,6 +26,7 @@ class Levelizer():
         matched = self._process_stage_1(data)
         matched = self._process_stage_2(matched)
         mapped_lines = self._process_stage_3(matched)
+        mapped_lines = self._process_stage_4(mapped_lines)
 
         return mapped_lines
 
@@ -99,10 +100,34 @@ class Levelizer():
     def _process_stage_3(self, data):
         self.logger.info("Entering levelizing stage 3 (assigning levels)")
 
-        # this is not a good way to do it
         # todo: intelligent algorithm
+
+        distances = [ l["position"] for l in data["lines"] ]
+        distances = map(operator.sub,distances, (distances[-1:] + distances[:-1]))
+
+        min_distance = min(abs(d) for d in distances)
+
+        top_element_pos=[l["position"] for l in data["lines"]][0]
+            
+        data["raster_pos"]=top_element_pos
+        data["raster_dist"]=min_distance
+
         for line in data["lines"]:
-            line["level"] = line["position"] / self.scanner_height
+            line["level"] = (line["position"]-top_element_pos)/min_distance
+
+        return data
+
+    def _process_stage_4(self, data):
+        self.logger.info("Entering levelizing stage 4 (assigning note duration)")
+
+        for line in data["lines"]:
+            line["notes"]=[]
+            for obj in line["objects"]:
+                x_min = min([p[0] for p in obj])
+                x_max = max([p[0] for p in obj])
+                line["notes"].append((x_min,x_max))
+                
+            line["notes"] = sorted(line["notes"], key=lambda note: note[0])
 
         return data
 
