@@ -45,7 +45,7 @@ class Analyzer():
         imgStripped = cv2.inRange(img, lower, higher)
 
         if self.debug:
-            cv2.imshow('stripped image', imgStripped)
+            cv2.imshow("stripped image", imgStripped)
             cv2.waitKey(0)
 
         contours, h = cv2.findContours(imgStripped, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
@@ -77,17 +77,17 @@ class Analyzer():
         edges = cv2.Canny(imgGray, 120, 140)
 
         if self.debug: 
-            cv2.imshow('canny image', edges)
+            cv2.imshow("canny image", edges)
             cv2.waitKey(0)
 
         contours, h = cv2.findContours(edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
 
         for contour in contours:
             cv2.drawContours(img, [contour], 0, (0, 0, 255), 3)
-            cv2.imshow('', img)
+            cv2.imshow("", img)
             cv2.waitKey(0)
 
-        cv2.imshow('', img)
+        cv2.imshow("", img)
         cv2.waitKey(0)
 
     def _remove_big_objects(self, contours, mean_area):

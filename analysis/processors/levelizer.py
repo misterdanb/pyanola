@@ -108,7 +108,7 @@ class Levelizer():
         min_distance = min(abs(d) for d in distances)
 
         top_element_pos=[l["position"] for l in data["lines"]][0]
-            
+
         data["raster_pos"]=top_element_pos
         data["raster_dist"]=min_distance
 
@@ -126,7 +126,7 @@ class Levelizer():
                 x_min = min([p[0] for p in obj])
                 x_max = max([p[0] for p in obj])
                 line["notes"].append((x_min,x_max))
-                
+
             line["notes"] = sorted(line["notes"], key=lambda note: note[0])
 
         return data
