@@ -47,10 +47,12 @@ for line in l_data["lines"]:
         p2 = (note[1], 1000)
         cv2.line(img, p1, p2, (255, 0, 0))
     """
+    """
     for i in range(0, 1000):
         p1 = (0, l_data["raster_pos"]+(l_data["raster_dist"]+levelizer.scanner_height)*i)
         p2 = (800, l_data["raster_pos"]+(l_data["raster_dist"]+levelizer.scanner_height)*i)
         cv2.line(img, p1, p2, (0, 0, 255))
 
     cv2.imshow('detected role structure', img)
-    cv2.waitKey(0) 
+    cv2.waitKey(0)
+    """

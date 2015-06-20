@@ -17,10 +17,23 @@ class MidiGenerator():
             start_track.append(Message("program_change", program=1))
 
             last_track = start_track
+            divisor = 2
+
+            for line in data["lines"]:
+                tmp = line["level"] / divisor
+
+                if tmp > 127:
+                    for i in range(100):
+                        tmp = line["level"] / 2**i
+
+                        if tmp < 127:
+                            divisor = 2**i
+                            break
+
 
             for line in data["lines"]:
                 track = MidiTrack()
-                pitch = 127-line["level"]/4 #TODO
+                pitch = 127-line["level"]/divisor #TODO
                 delta = 0
 
                 last_note = (0,0)

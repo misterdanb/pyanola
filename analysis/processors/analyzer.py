@@ -3,6 +3,7 @@ import logging
 import toml
 import numpy as np
 import operator
+import itertools
 import cv2
 
 class Analyzer():
@@ -54,18 +55,41 @@ class Analyzer():
         mean_area = reduce(operator.add, [ cv2.contourArea(c) for c in contours ]) / len(contours)
 
         if self.config["thresholds"]["remove_big_objects"]:
-            contours = self._remove_big_objects(contours, mean_area)
+            contours, big = self._separate_big_objects(contours, mean_area)
+        else:
+            _, big = self._separate_big_objects(contours, mean_area)
 
         if self.config["thresholds"]["remove_small_objects"]:
-            contours = self._remove_small_objects(contours, mean_area)
+            contours, small = self._separate_small_objects(contours, mean_area)
 
         coords_only = [ [ (e[0][0], e[0][1]) for e in c ] for c in contours ]
+
+        # calculate the role height
+        bg_bars = None
+
+        if len(big) >= 2:
+            big_sorted = sorted(big, key=lambda c: cv2.contourArea(c))
+            bg_bars = big_sorted[-2:]
+
+        role_height = None
+
+        if bg_bars != None:
+            bar_pairs = itertools.product(bg_bars[0], bg_bars[1])
+            bar_diffs = [ abs(p1[0][1] - p2[0][1]) for (p1, p2) in bar_pairs ]
+            role_height = min(bar_diffs)
 
         data = {}
 
         data["width"] = img.shape[1]
         data["height"] = img.shape[0]
+
+        if role_height != None:
+            data["role_height"] = role_height
+
         data["objects"] = coords_only
+
+        self.logger.info("Image size: " + str(data["width"]) + "x" + str(data["height"]) + "\n" +
+                         "Role height: " + str(data["role_height"]))
 
         return data
 
@@ -90,15 +114,17 @@ class Analyzer():
         cv2.imshow("", img)
         cv2.waitKey(0)
 
-    def _remove_big_objects(self, contours, mean_area):
+    def _separate_big_objects(self, contours, mean_area):
         max_area_factor = self.config["thresholds"]["max_area_factor"]
         without_big = [ c for c in contours if cv2.contourArea(c) < max_area_factor * mean_area]
+        big = [ c for c in contours if cv2.contourArea(c) >= max_area_factor * mean_area]
 
-        return without_big
+        return (without_big, big)
 
-    def _remove_small_objects(self, contours, mean_area):
+    def _separate_small_objects(self, contours, mean_area):
         min_area_factor = self.config["thresholds"]["min_area_factor"]
         without_small = [ c for c in contours if cv2.contourArea(c) > min_area_factor * mean_area]
+        small = [ c for c in contours if cv2.contourArea(c) <= min_area_factor * mean_area]
 
-        return without_small
+        return (without_small, small)
 
