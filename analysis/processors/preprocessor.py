@@ -11,6 +11,7 @@ class Preprocessor():
         self.config = toml.load(Preprocessor.CONFIG_FILE)
         self.logger = logging.getLogger("pyanola.analysis.preprocessor")
         self.debug = self.config["settings"]["debug"]
+        self.blur = self.config["settings"]["blur"]
 
         if self.debug:
             self.logger.setLevel(logging.DEBUG)
@@ -18,5 +19,7 @@ class Preprocessor():
     def process(self, img):
         self.logger.info("Entering preprocesing stage")
 
+        if self.blur:
+            img = cv2.GaussianBlur(img, (25, 1), 0)
+     
         return img
-
