@@ -12,6 +12,7 @@ class Preprocessor():
         self.logger = logging.getLogger("pyanola.analysis.preprocessor")
         self.debug = self.config["settings"]["debug"]
         self.blur = self.config["settings"]["blur"]
+        self.blur_amount = self.config["settings"]["blur_amount"]
 
         if self.debug:
             self.logger.setLevel(logging.DEBUG)
@@ -20,6 +21,6 @@ class Preprocessor():
         self.logger.info("Entering preprocesing stage")
 
         if self.blur:
-            img = cv2.GaussianBlur(img, (25, 1), 0)
+            img = cv2.GaussianBlur(img, (self.blur_amount, 1), 0)
      
         return img
