@@ -33,12 +33,88 @@ class Analyzer():
     def _process_background_recognition(self, img):
         self.logger.info("Using method \"background recognition\"")
 
+        #
+        # find the two big areas in the top and the bottom corner of the image
+        # and calculate the mean background color
+        #
+        gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+        # find brightest and darkest pixel of the image
+        pixel_list = [ (int(p[0]), int(p[1]), int(p[2])) for row in img for p in row ]
+        brightest = max(pixel_list, key=lambda p: p[0] + p[1] + p[2])
+        darkest = min(pixel_list, key=lambda p: p[0] + p[1] + p[2])
+        mean = reduce(lambda p1, p2: (p1[0] + p2[0], p1[1] + p2[1], p1[2] + p2[2]), pixel_list)
+
+        bright_gray = (brightest[0] + brightest[1] + brightest[2]) / 3
+        dark_gray = (darkest[0] + darkest[1] + darkest[2]) / 3
+        mean_gray = (mean[0] + mean[1] + mean[2]) / 3
+
+        thresh_gray = (bright_gray + dark_gray) / 2
+        mode = cv2.THRESH_BINARY if mean_gray < thresh_gray else cv2.THRESH_BINARY_INV
+
+        _, threshed = cv2.threshold(gray_img, thresh_gray, 255, mode)
+
+        basic_contours, _ = cv2.findContours(threshed, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        basic_contours = [ cv2.convexHull(c) for c in basic_contours ]
+
+        basic_mean_area = reduce(operator.add, [ cv2.contourArea(c) for c in basic_contours ]) / len(basic_contours)
+        _, big = self._separate_big_objects(basic_contours, basic_mean_area)
+
+        # calculate the role height and get the big bars
+        bg_bars = None
+
+        if len(big) >= 2:
+            big_sorted = sorted(big, key=lambda c: cv2.contourArea(c))
+            bg_bars = big_sorted[-2:]
+
+        role_height = None
+
+        if bg_bars != None:
+            bar_pairs = itertools.product(bg_bars[0], bg_bars[1])
+            bar_diffs = [ abs(p1[0][1] - p2[0][1]) for (p1, p2) in bar_pairs ]
+            role_height = min(bar_diffs)
+
+        if self.debug:
+            cv2.imshow("threshed image", threshed)
+            cv2.waitKey(0)
+
+        # calculate the mean of the pixels masked by the big bars
+        pixel_sum = [ 0, 0, 0 ]
+        pixel_count = 0
+
+        bar1_min = min(bg_bars[0], key=lambda p: p[0][0] + p[0][1])
+        bar1_max = max(bg_bars[0], key=lambda p: p[0][0] + p[0][1])
+        print(bar1_min)
+        print(bar1_max)
+
+        for x in range(bar1_min[0][0], bar1_max[0][0]):
+            for y in range(bar1_min[0][1], bar1_max[0][1]):
+                pixel_sum[0] += img[y, x][0]
+                pixel_sum[1] += img[y, x][1]
+                pixel_sum[2] += img[y, x][2]
+                pixel_count += 1
+
+        bar2_min = min(bg_bars[1], key=lambda p: p[0][0] + p[0][1])
+        bar2_max = max(bg_bars[1], key=lambda p: p[0][0] + p[0][1])
+        print(bar2_min)
+        print(bar2_max)
+
+        for x in range(bar2_min[0][0], bar2_max[0][0]):
+            for y in range(bar2_min[0][1], bar2_max[0][1]):
+                pixel_sum[0] += img[y, x][0]
+                pixel_sum[1] += img[y, x][1]
+                pixel_sum[2] += img[y, x][2]
+                pixel_count += 1
+
+        bg_mean = [ pixel_sum[0] / pixel_count, pixel_sum[1] / pixel_count, pixel_sum[2] / pixel_count ]
+
+        #
+        # find, given the background mean color, the contours, which are candidates
+        # to be notes
+        #
         # todo: rotate image, so it's perfectly aligned horizontally
         lower_variance = np.array(self.config["thresholds"]["lower_variance"])
         upper_variance = np.array(self.config["thresholds"]["upper_variance"])
-
-        # todo: calculate a better mean value for the background color
-        bg_mean = img[10, 10]
 
         lower = bg_mean - lower_variance
         higher = bg_mean + upper_variance
@@ -55,28 +131,12 @@ class Analyzer():
         mean_area = reduce(operator.add, [ cv2.contourArea(c) for c in contours ]) / len(contours)
 
         if self.config["thresholds"]["remove_big_objects"]:
-            contours, big = self._separate_big_objects(contours, mean_area)
-        else:
-            _, big = self._separate_big_objects(contours, mean_area)
+            contours, _ = self._separate_big_objects(contours, mean_area)
 
         if self.config["thresholds"]["remove_small_objects"]:
-            contours, small = self._separate_small_objects(contours, mean_area)
+            contours, _ = self._separate_small_objects(contours, mean_area)
 
         coords_only = [ [ (e[0][0], e[0][1]) for e in c ] for c in contours ]
-
-        # calculate the role height
-        bg_bars = None
-
-        if len(big) >= 2:
-            big_sorted = sorted(big, key=lambda c: cv2.contourArea(c))
-            bg_bars = big_sorted[-2:]
-
-        role_height = None
-
-        if bg_bars != None:
-            bar_pairs = itertools.product(bg_bars[0], bg_bars[1])
-            bar_diffs = [ abs(p1[0][1] - p2[0][1]) for (p1, p2) in bar_pairs ]
-            role_height = min(bar_diffs)
 
         data = {}
 
