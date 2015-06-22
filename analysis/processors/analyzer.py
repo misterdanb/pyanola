@@ -66,9 +66,11 @@ class Analyzer():
         role_height = None
 
         if bg_bars != None:
-            bar_pairs = itertools.product(bg_bars[0], bg_bars[1])
-            bar_diffs = [ abs(p1[0][1] - p2[0][1]) for (p1, p2) in bar_pairs ]
-            role_height = min(bar_diffs)
+            sorted_bars = sorted(bg_bars, key=lambda b: b[0][0][1])
+            bars_y = [ [ c[0][1] for c in b ] for b in sorted_bars ]
+            role_top = max(bars_y[0])
+            role_bottom = min(bars_y[1])
+            role_height = role_bottom-role_top
 
         if self.debug:
             cv2.imshow("threshed image", threshed)
@@ -80,8 +82,6 @@ class Analyzer():
 
         bar1_min = min(bg_bars[0], key=lambda p: p[0][0] + p[0][1])
         bar1_max = max(bg_bars[0], key=lambda p: p[0][0] + p[0][1])
-        print(bar1_min)
-        print(bar1_max)
 
         for x in range(bar1_min[0][0], bar1_max[0][0]):
             for y in range(bar1_min[0][1], bar1_max[0][1]):
@@ -92,8 +92,6 @@ class Analyzer():
 
         bar2_min = min(bg_bars[1], key=lambda p: p[0][0] + p[0][1])
         bar2_max = max(bg_bars[1], key=lambda p: p[0][0] + p[0][1])
-        print(bar2_min)
-        print(bar2_max)
 
         for x in range(bar2_min[0][0], bar2_max[0][0]):
             for y in range(bar2_min[0][1], bar2_max[0][1]):
@@ -141,6 +139,8 @@ class Analyzer():
 
         if role_height != None:
             data["role_height"] = role_height
+        if role_top != None:
+            data["role_top"] = role_top
 
         data["objects"] = coords_only
 
@@ -183,4 +183,3 @@ class Analyzer():
         small = [ c for c in contours if cv2.contourArea(c) <= min_area_factor * mean_area]
 
         return (without_small, small)
-

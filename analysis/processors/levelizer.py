@@ -8,6 +8,7 @@ import cv2
 
 class Levelizer():
     CONFIG_FILE = "levelizer.conf"
+    SPECS_FILE = ".specs.conf"
     
     def __init__(self):
         self.config = toml.load(Levelizer.CONFIG_FILE)
@@ -20,6 +21,11 @@ class Levelizer():
         self.scanner_height_scale = self.config["scanner"]["height_scale"]
         self.scanner_step = self.config["scanner"]["step"]
         self.height_scale = 1
+
+        self.specs = toml.load(Levelizer.SPECS_FILE)
+        self.phys_role_height = self.specs["role"]["height"]
+        self.holes_per_inch = self.specs["role"]["holes_per_inch"]
+        self.role_speed = self.specs["role"]["speed"]
 
     def process(self, data):
         self._prepare(data)
@@ -100,20 +106,16 @@ class Levelizer():
     def _process_stage_3(self, data):
         self.logger.info("Entering levelizing stage 3 (assigning levels)")
 
-        # todo: intelligent algorithm
+        phys_distance = 1. / self.holes_per_inch * 25.4
 
-        distances = [ l["position"] for l in data["lines"] ]
-        distances = map(operator.sub,distances, (distances[-1:] + distances[:-1]))
+        data["pixel_per_mm"] = data["role_height"] / self.phys_role_height
 
-        min_distance = min(abs(d) for d in distances)
+        distance = data["pixel_per_mm"] * phys_distance
 
-        top_element_pos=[l["position"] for l in data["lines"]][0]
-
-        data["raster_pos"]=top_element_pos
-        data["raster_dist"]=min_distance
+        data["raster_dist"]=distance
 
         for line in data["lines"]:
-            line["level"] = (line["position"]-top_element_pos)/min_distance
+            line["level"] = (line["position"]-data["role_top"])/distance
 
         return data
 
@@ -128,6 +130,13 @@ class Levelizer():
                 line["notes"].append((x_min,x_max))
 
             line["notes"] = sorted(line["notes"], key=lambda note: note[0])
+
+            mm_per_minute = self.role_speed * 30.48
+            minutes_per_pixel = 1. / (data["pixel_per_mm"] * mm_per_minute)
+            ticks_per_minute = 480 * 120 #480 ticks per beat, 120 beats per minute, midos default values
+            ticks_per_pixel = ticks_per_minute * minutes_per_pixel
+
+            line["notes"] = [ ( n[0] * ticks_per_pixel, n[1] * ticks_per_pixel ) for n in line["notes"] ]
 
         return data
 
@@ -163,4 +172,3 @@ class Levelizer():
                 return False
 
         return True
-
