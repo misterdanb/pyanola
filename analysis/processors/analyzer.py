@@ -40,11 +40,10 @@ class Analyzer():
         gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
         # find brightest and darkest pixel of the image
-        pixel_list = [ (int(p[0]), int(p[1]), int(p[2])) for row in img for p in row ]
-        gray_pixel_list=map(lambda p: (p[0] + p[1] + p[2])/3, pixel_list)
+        gray_pixel_list = [ int(p) for row in gray_img for p in row ]
         bright_gray = max(gray_pixel_list)
         dark_gray = min(gray_pixel_list)
-        mean_gray = reduce(lambda p1, p2: (p1 + p2), gray_pixel_list) / len(gray_pixel_list)
+        mean_gray = sum(gray_pixel_list) / len(gray_pixel_list)
 
         thresh_gray = (bright_gray + dark_gray) / 2
         mode = cv2.THRESH_BINARY if mean_gray < thresh_gray else cv2.THRESH_BINARY_INV
