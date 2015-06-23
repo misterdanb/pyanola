@@ -24,7 +24,7 @@ class MidiGenerator():
 
             last_track = start_track
 
-            for line in data["lines"][self.control_top:-self.control_bottom]:
+            for line in data["lines"][self.control_top:len(data["lines"])-self.control_bottom]:
                 track = MidiTrack()
                 pitch = int(self.highest_tone-(line["level"]-self.control_top))
 
