@@ -9,7 +9,7 @@ import cv2
 class Levelizer():
     CONFIG_FILE = "levelizer.conf"
     SPECS_FILE = ".specs.conf"
-    
+
     def __init__(self):
         self.config = toml.load(Levelizer.CONFIG_FILE)
         self.logger = logging.getLogger("pyanola.analysis.levelizer")
@@ -20,7 +20,11 @@ class Levelizer():
 
         self.scanner_height_scale = self.config["scanner"]["height_scale"]
         self.scanner_step = self.config["scanner"]["step"]
-        self.height_scale = 1
+        self.raster_dist_variance = self.config["level_assigner"]["dist_variance"]
+        self.raster_offset_test_resolution = self.config["level_assigner"]["offset_test_resolution"]
+        self.raster_dist_test_resolution = self.config["level_assigner"]["dist_test_resolution"]
+        self.raster_match_percentage = self.config["level_assigner"]["match_percentage"]
+        self.raster_line_match_percentage = self.config["level_assigner"]["line_match_percentage"]
 
         self.specs = toml.load(Levelizer.SPECS_FILE)
         self.phys_role_height = self.specs["role"]["height"]
@@ -106,16 +110,55 @@ class Levelizer():
     def _process_stage_3(self, data):
         self.logger.info("Entering levelizing stage 3 (assigning levels)")
 
-        phys_distance = 1. / self.holes_per_inch * 25.4
-
         data["pixel_per_mm"] = data["role_height"] / self.phys_role_height
 
-        distance = data["pixel_per_mm"] * phys_distance
+        phys_raster_dist= 1. / self.holes_per_inch * 25.4
+        raster_dist = data["pixel_per_mm"] * phys_raster_dist
 
-        data["raster_dist"]=distance
+        min_raster_dist = raster_dist - self.raster_dist_variance
+        max_raster_dist = raster_dist + self.raster_dist_variance
+
+        matched_raster_offset, matched_raster_dist = None, None
+
+        for raster_dist_test in np.linspace(min_raster_dist, max_raster_dist, self.raster_dist_test_resolution):
+            if matched_raster_offset != None and matched_raster_dist != None:
+                break
+
+            for raster_offset_test in np.linspace(0, raster_dist_test, self.raster_offset_test_resolution):
+                in_raster = 0
+
+                for i in range(int(data["role_height"] / raster_dist)):
+                    begin = raster_offset_test + i * raster_dist_test
+                    end = raster_offset_test + (i + 1) * raster_dist_test
+                    #print("  begin: " + str(begin))
+                    #print("  end: " + str(end))
+
+                    for line in data["lines"]:
+                        in_raster_line = 0
+
+                        if self._all_in_bounds(begin, end, line["objects"], self.raster_line_match_percentage):
+                            in_raster += 1
+                            in_raster_line += 1
+                            # actually we can break here, right?
+                            # we want to have solutions, where raster_dist is as small as possible
+                            break
+
+                        if in_raster_line > 1:
+                            self.logger.error("Two lines matching one raster line!")
+
+                if float(in_raster) / float(len(data["lines"])) > self.raster_match_percentage:
+                    matched_raster_offset = raster_offset_test
+                    matched_raster_dist = raster_dist_test
+                    break
+
+        print(raster_dist)
+        print(matched_raster_dist)
+
+        data["raster_offset"] = matched_raster_offset
+        data["raster_dist"] = matched_raster_dist
 
         for line in data["lines"]:
-            line["level"] = (line["position"]-data["role_top"])/distance
+            line["level"] = (line["position"] - data["role_top"]) / matched_raster_dist
 
         return data
 
@@ -157,14 +200,23 @@ class Levelizer():
 
         return (width, height)
 
-    def _matching_objects(self, i, objects):
+    def _matching_objects(self, begin, objects):
         matched = []
 
         for o in objects:
-            if self._in_bounds(i, i + self.scanner_height * self.scanner_height_scale, o):
+            if self._in_bounds(begin, begin + self.scanner_height * self.scanner_height_scale, o):
                 matched.append(o)
 
         return matched
+
+    def _all_in_bounds(self, begin, end, objects, thresh):
+        objects_in_bounds = 0
+
+        for o in objects:
+            if self._in_bounds(begin, end, o):
+                objects_in_bounds += 1
+
+        return float(objects_in_bounds) / float(len(objects)) > thresh
 
     def _in_bounds(self, begin, end, object):
         for coord in object:

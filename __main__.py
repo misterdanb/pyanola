@@ -21,7 +21,7 @@ levelizer = Levelizer()
 l_data = levelizer.process(a_data)
 
 midi_generator = MidiGenerator()
-m_data = midi_generator.create(l_data)
+#m_data = midi_generator.create(l_data)
 
 #for c in a_data["objects"]:
 #    cv2.drawContours(img, [c], 0, (0, 255, 0), -1)
@@ -48,8 +48,8 @@ for line in l_data["lines"]:
         cv2.line(img, p1, p2, (255, 0, 0))
     """
     for i in range(0, 1000):
-        p1 = (0, int(l_data["role_top"]+l_data["raster_dist"]*i))
-        p2 = (800, int(l_data["role_top"]+l_data["raster_dist"]*i))
+        p1 = (0, int(l_data["raster_offset"]+l_data["raster_dist"]*i))
+        p2 = (800, int(l_data["raster_offset"]+l_data["raster_dist"]*i))
         cv2.line(img, p1, p2, (0, 0, 255))
 
     cv2.imshow('detected role structure', img)
