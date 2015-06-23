@@ -130,18 +130,17 @@ class Levelizer():
                 for i in range(int(data["role_height"] / raster_dist)):
                     begin = raster_offset_test + i * raster_dist_test
                     end = raster_offset_test + (i + 1) * raster_dist_test
-                    #print("  begin: " + str(begin))
-                    #print("  end: " + str(end))
 
                     for line in data["lines"]:
                         in_raster_line = 0
 
                         if self._all_in_bounds(begin, end, line["objects"], self.raster_line_match_percentage):
+                            # ATTENTIONE !!!
+                            # REMOVE THIS ONE LINE LATER ON, IT'S JUST FOR TESTING _perc_in_bounds
+                            line["cropped_objects"] = [ self._perc_in_bounds(begin, end, o)[1] for o in line["objects"] ]
+
                             in_raster += 1
                             in_raster_line += 1
-                            # actually we can break here, right?
-                            # we want to have solutions, where raster_dist is as small as possible
-                            break
 
                         if in_raster_line > 1:
                             self.logger.error("Two lines matching one raster line!")
@@ -150,9 +149,6 @@ class Levelizer():
                     matched_raster_offset = raster_offset_test
                     matched_raster_dist = raster_dist_test
                     break
-
-        print(raster_dist)
-        print(matched_raster_dist)
 
         data["raster_offset"] = matched_raster_offset
         data["raster_dist"] = matched_raster_dist
@@ -217,6 +213,73 @@ class Levelizer():
                 objects_in_bounds += 1
 
         return float(objects_in_bounds) / float(len(objects)) > thresh
+
+    def _perc_in_bounds(self, begin, end, object):
+        shift = lambda l: l[1:] + l[:1]
+
+        parameter = lambda l, p1, p2: float(l - p1[1]) / float(p2[1] - p1[1])
+        intersect = lambda l, p1, p2: (int(p1[0] + parameter(l, p1, p2) * (p2[0] - p1[0])),
+                                       int(p1[1] + parameter(l, p1, p2) * (p2[1] - p1[1])))
+
+        out = False
+        in_out_lines = []
+
+        for i in range(len(object)):
+            if object[i - 1][1] < begin and object[i][1] >= begin:
+                in_out_lines.append(("oi", begin, i - 1, i))
+            elif object[i - 1][1] >= begin and object[i][1] < begin:
+                in_out_lines.append(("io", begin, i - 1, i))
+            elif object[i - 1][1] < end and object[i][1] >= end:
+                in_out_lines.append(("io", end, i - 1, i))
+            elif object[i - 1][1] >= end and object[i][1] < end:
+                in_out_lines.append(("oi", end, i - 1, i))
+
+        if len(in_out_lines) == 0:
+            #return (1.0, object)
+            # test
+            return (1.0, [(0, 0)])
+        elif len(in_out_lines) % 2 == 1:
+            raise("There is an algorithmic error in _perc_in_bounds.")
+
+        if in_out_lines[0][0] == "oi":
+            in_out_lines = shift(in_out_lines)
+
+        in_out_lines = [ (in_out_lines[i], in_out_lines[i + 1]) for i in range(0, len(in_out_lines), 2) ]
+
+        # make a working copy of the object
+        new_object = list(object)
+        index_shift = 0
+
+        for (bound_io, bound_oi) in in_out_lines:
+            p1_io = object[bound_io[2]]
+            p2_io = object[bound_io[3]]
+
+            p1_oi = object[bound_oi[2]]
+            p2_oi = object[bound_oi[3]]
+
+            p_int_io = intersect(bound_oi[1], p1_io, p2_io)
+            p_int_oi = intersect(bound_io[1], p1_oi, p2_oi)
+
+            new_object[bound_io[3]] = p_int_io
+            new_object[bound_oi[2]] = p_int_oi
+
+            index_to = bound_io[3] - index_shift
+            index_from = bound_oi[2] - index_shift
+
+            to_p_int_io = new_object[:index_to + 1]
+            from_p_int_oi = [] if index_from == 0 else new_object[index_from:]
+
+            new_object = to_p_int_io + from_p_int_oi
+            index_shift += bound_oi[2] - bound_io[3] - 1
+
+        area = cv2.contourArea(np.asarray(object))
+        new_area = cv2.contourArea(np.asarray(new_object))
+
+        print("area before: " + str(area))
+        print("area after: " + str(new_area))
+        print("-----------------------------")
+
+        return (new_area / area, new_object)
 
     def _in_bounds(self, begin, end, object):
         for coord in object:
