@@ -23,8 +23,6 @@ class Levelizer():
         self.raster_dist_variance = self.config["level_assigner"]["dist_variance"]
         self.raster_offset_test_resolution = self.config["level_assigner"]["offset_test_resolution"]
         self.raster_dist_test_resolution = self.config["level_assigner"]["dist_test_resolution"]
-        self.raster_match_percentage = self.config["level_assigner"]["match_percentage"]
-        self.raster_line_match_percentage = self.config["level_assigner"]["line_match_percentage"]
 
         self.specs = toml.load(Levelizer.SPECS_FILE)
         self.phys_role_height = self.specs["role"]["height"]
@@ -120,6 +118,8 @@ class Levelizer():
 
         matched_raster_offset, matched_raster_dist = None, None
 
+        global_variances = []
+
         for raster_dist_test in np.linspace(min_raster_dist, max_raster_dist, self.raster_dist_test_resolution):
             if matched_raster_offset != None and matched_raster_dist != None:
                 break
@@ -127,34 +127,46 @@ class Levelizer():
             for raster_offset_test in np.linspace(0, raster_dist_test, self.raster_offset_test_resolution):
                 in_raster = 0
 
-                for i in range(int(data["role_height"] / raster_dist)):
-                    begin = raster_offset_test + i * raster_dist_test
-                    end = raster_offset_test + (i + 1) * raster_dist_test
+                object_variances = []
+                line_levels = []
+
+                for i in range(int(data["role_height"] / raster_dist_test)):
+                    begin = data["role_top"] + raster_offset_test + i * raster_dist_test
+                    end = data["role_top"] + raster_offset_test + (i + 1) * raster_dist_test
+
+                    best_line = None
+                    best_line_object_variances = None
+                    best_line_variance = 0
 
                     for line in data["lines"]:
-                        in_raster_line = 0
+                        line_object_variances = [ self._perc_in_bounds(begin, end, o) for o in line["objects"] ]
 
-                        if self._all_in_bounds(begin, end, line["objects"], self.raster_line_match_percentage):
-                            # ATTENTIONE !!!
-                            # REMOVE THIS ONE LINE LATER ON, IT'S JUST FOR TESTING _perc_in_bounds
-                            line["cropped_objects"] = [ self._perc_in_bounds(begin, end, o)[1] for o in line["objects"] ]
+                        if best_line == None:
+                            best_line = line
+                            best_line_variance = sum(line_object_variances) / len(line_object_variances)
+                            best_line_object_variances = line_object_variances
+                        elif sum(line_object_variances) / len(line_object_variances) < best_line_variance:
+                            best_line = line
+                            best_line_variance = sum(line_object_variances) / len(line_object_variances)
+                            best_line_object_variances = line_object_variances
 
-                            in_raster += 1
-                            in_raster_line += 1
+                    if best_line_variance <= float(end - begin) / 2:
+                        object_variances += best_line_object_variances
+                        line_levels.append((i, best_line))
 
-                        if in_raster_line > 1:
-                            self.logger.error("Two lines matching one raster line!")
+                global_variance = sum(object_variances) / len(object_variances)
+                global_variances.append((global_variance, raster_offset_test, raster_dist_test, line_levels))
 
-                if float(in_raster) / float(len(data["lines"])) > self.raster_match_percentage:
-                    matched_raster_offset = raster_offset_test
-                    matched_raster_dist = raster_dist_test
-                    break
+        from pprint import pprint
+        pprint([ (v[0], v[1], v[2]) for v in global_variances ])
+        min_variance = min(global_variances, key=lambda (v, o, d, l): v)
+        pprint(min_variance)
 
-        data["raster_offset"] = matched_raster_offset
-        data["raster_dist"] = matched_raster_dist
+        data["raster_offset"] = min_variance[1]
+        data["raster_dist"] = min_variance[2]
 
         for line in data["lines"]:
-            line["level"] = (line["position"] - data["role_top"]) / matched_raster_dist
+            line["level"] = (line["position"] - data["role_top"] - data["raster_offset"]) / data["raster_dist"]
 
         return data
 
@@ -214,7 +226,18 @@ class Levelizer():
 
         return float(objects_in_bounds) / float(len(objects)) > thresh
 
+    def _perc_all_in_bounds(self, begin, end, objects):
+        return sum([ self._perc_in_bounds(begin, end, o) for o in objects ]) / len(objects)
+
     def _perc_in_bounds(self, begin, end, object):
+        half_dist = float(end - begin) / 2
+        middle = begin + half_dist
+
+        differences = [ abs(c[1] - middle) for c in object ]
+
+        return float(max(differences)) / half_dist
+
+    def _perc_in_bounds_old_and_not_working(self, begin, end, object):
         shift = lambda l: l[1:] + l[:1]
 
         parameter = lambda l, p1, p2: float(l - p1[1]) / float(p2[1] - p1[1])

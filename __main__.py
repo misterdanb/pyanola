@@ -21,7 +21,7 @@ levelizer = Levelizer()
 l_data = levelizer.process(a_data)
 
 midi_generator = MidiGenerator()
-#m_data = midi_generator.create(l_data)
+m_data = midi_generator.create(l_data)
 
 #for c in a_data["objects"]:
 #    cv2.drawContours(img, [c], 0, (0, 255, 0), -1)
@@ -35,10 +35,9 @@ for line in l_data["lines"]:
     print("##############################################")
     #print(line[1])
 
-    if "cropped_objects" in line:
-        for c in line["cropped_objects"]:
-            npc = np.array([ [[e[0], e[1]]] for e in c ])
-            cv2.drawContours(p_img, [npc], 0, (0, 255, 0), -1)
+    for c in line["objects"]:
+        npc = np.array([ [[e[0], e[1]]] for e in c ])
+        cv2.drawContours(p_img, [npc], 0, (0, 255, 0), -1)
     """
     for note in line["notes"]:
         p1 = (note[0], 0)
