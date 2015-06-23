@@ -13,6 +13,7 @@ class Preprocessor():
         self.debug = self.config["settings"]["debug"]
         self.blur = self.config["settings"]["blur"]
         self.blur_amount = self.config["settings"]["blur_amount"]
+        self.flipped = self.config["settings"]["flipped"]
 
         if self.debug:
             self.logger.setLevel(logging.DEBUG)
@@ -22,5 +23,9 @@ class Preprocessor():
 
         if self.blur:
             img = cv2.GaussianBlur(img, (self.blur_amount, 1), 0)
-     
+
+        if self.flipped:
+            for i in range(len(img)):
+                img[i]=img[i][::-1]
+
         return img
