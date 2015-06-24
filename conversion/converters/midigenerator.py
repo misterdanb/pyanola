@@ -25,22 +25,24 @@ class MidiGenerator():
             last_track = start_track
 
             for line in data["lines"][self.control_top:len(data["lines"])-self.control_bottom]:
-                track = MidiTrack()
-                pitch = int(self.highest_tone-(line["level"]-self.control_top))
+                # only add those who have a level attached
+                if "level" in line:
+                    track = MidiTrack()
+                    pitch = int(self.highest_tone-(line["level"]-self.control_top))
 
-                delta = 0
-                last_note = (0,0)
+                    delta = 0
+                    last_note = (0,0)
 
-                for note in line["notes"][1:]:
-                    delta = int((note[0] - last_note[1]))
-                    track.append(Message("note_on", note=pitch, velocity=100, time=delta))
-                    delta = int((note[1] - note[0]))
-                    track.append(Message("note_off", note=pitch, velocity=100, time=delta))
+                    for note in line["notes"][1:]:
+                        delta = int((note[0] - last_note[1]))
+                        track.append(Message("note_on", note=pitch, velocity=100, time=delta))
+                        delta = int((note[1] - note[0]))
+                        track.append(Message("note_off", note=pitch, velocity=100, time=delta))
 
-                    last_note = note
+                        last_note = note
 
-                track = merge_tracks([ track, last_track ])
-                last_track = track
+                    track = merge_tracks([ track, last_track ])
+                    last_track = track
 
             outfile.tracks.append(track)
             outfile.save(self.filename)
