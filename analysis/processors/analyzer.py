@@ -120,7 +120,12 @@ class Analyzer():
             cv2.waitKey(0)
 
         imgStripped = cv2.GaussianBlur(imgStripped, (self.config["thresholds"]["blur_amount"], 1), 0)
-        _, imgStripped = cv2.threshold(imgStripped, 1, 255, cv2.THRESH_BINARY)
+
+        if self.debug:
+            cv2.imshow("stripped image", imgStripped)
+            cv2.waitKey(0)
+
+        _, imgStripped = cv2.threshold(imgStripped, self.config["thresholds"]["blur_threshold"], 255, cv2.THRESH_BINARY)
 
         if self.debug:
             cv2.imshow("stripped image", imgStripped)

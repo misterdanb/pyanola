@@ -150,20 +150,23 @@ class Levelizer():
                             best_line_variance = sum(line_object_variances) / len(line_object_variances)
                             best_line_object_variances = line_object_variances
 
-                    if best_line_variance <= 0.4 * (raster_dist_test / 2) and not best_line == None:
+                    if best_line_variance <= 0.9 * raster_dist_test and not best_line == None:
                         #object_variances += best_line_object_variances
                         object_variances.append(sum(best_line_object_variances) / len(best_line_object_variances))
                         line_levels.append((i, best_line))
                         lines.remove(best_line)
                         in_raster += 1
 
-                if in_raster > 0.6 * len(data["lines"]):
+                if in_raster > 0.8 * len(data["lines"]):
                     global_variance = sum(object_variances) / len(object_variances)
                     global_variances.append((global_variance, raster_offset_test, raster_dist_test, line_levels))
                     print("  in_raster: " + str(in_raster))
                     print("  lines: " + str(len(data["lines"])))
+                    print("  raster_dist (given): " + str(raster_dist))
+                    print("  raster_dist (tested): " + str(raster_dist_test))
 
-        min_variance = min(global_variances, key=lambda (v, o, d, l): v)
+        good_value = sum([ v for (v, o, d, l) in global_variances ]) / len(global_variances)
+        min_variance = min(global_variances, key=lambda (v, o, d, l): abs(v - good_value))
 
         data["raster_offset"] = min_variance[1]
         data["raster_dist"] = min_variance[2]
@@ -171,7 +174,7 @@ class Levelizer():
         for (i, matched_line) in min_variance[3]:
             for line in data["lines"]:
                 if matched_line["position"] == line["position"]:
-                    line["level"] = i + 20
+                    line["level"] = i + 10
 
         return data
 
@@ -238,9 +241,10 @@ class Levelizer():
         half_dist = float(abs(end - begin)) / 2
         middle = begin + half_dist
 
-        difference = max([ abs(c[1] - middle) for c in object ])
+        difference_top = min([ abs(c[1] - begin) for c in object ])
+        difference_bottom = min([ abs(c[1] - end) for c in object ])
 
-        return difference
+        return difference_top + difference_bottom
 
     def _perc_in_bounds_old_and_not_working(self, begin, end, object):
         shift = lambda l: l[1:] + l[:1]

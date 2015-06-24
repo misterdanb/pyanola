@@ -30,10 +30,14 @@ cv2.imshow('detected role structure', img)
 cv2.waitKey(0)
 
 for line in l_data["lines"]:
+    print("##############################################")
     if "level" in line:
-        print("##############################################")
-        print("### " + str(line["level"]))
-        print("##############################################")
+        print("### level: " + str(line["level"]))
+        print("### position: " + str(line["position"]))
+    else:
+        print("### level: NO LEVEL")
+        print("### position: " + str(line["position"]))
+    print("##############################################")
 
     for c in line["objects"]:
         npc = np.array([ [[e[0], e[1]]] for e in c ])
