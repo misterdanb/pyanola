@@ -121,14 +121,11 @@ class Levelizer():
         global_variances = []
 
         for raster_dist_test in np.linspace(min_raster_dist, max_raster_dist, self.raster_dist_test_resolution):
-            if matched_raster_offset != None and matched_raster_dist != None:
-                break
-
             for raster_offset_test in np.linspace(0, raster_dist_test, self.raster_offset_test_resolution):
-                in_raster = 0
-
                 object_variances = []
                 line_levels = []
+
+                in_raster = 0
 
                 for i in range(int(data["role_height"] / raster_dist_test)):
                     begin = data["role_top"] + raster_offset_test + i * raster_dist_test
@@ -138,7 +135,10 @@ class Levelizer():
                     best_line_object_variances = None
                     best_line_variance = 0
 
-                    for line in data["lines"]:
+                    # working copy
+                    lines = list(data["lines"])
+
+                    for line in lines:
                         line_object_variances = [ self._perc_in_bounds(begin, end, o) for o in line["objects"] ]
 
                         if best_line == None:
@@ -150,12 +150,18 @@ class Levelizer():
                             best_line_variance = sum(line_object_variances) / len(line_object_variances)
                             best_line_object_variances = line_object_variances
 
-                    if best_line_variance <= float(end - begin) / 2:
-                        object_variances += best_line_object_variances
+                    if best_line_variance <= 0.95:
+                        #object_variances += best_line_object_variances
+                        object_variances.append(sum(best_line_object_variances) / len(best_line_object_variances))
                         line_levels.append((i, best_line))
+                        lines.remove(best_line)
+                        in_raster += 1
 
-                global_variance = sum(object_variances) / len(object_variances)
-                global_variances.append((global_variance, raster_offset_test, raster_dist_test, line_levels))
+                if in_raster == len(data["lines"]):
+                    global_variance = sum(object_variances) / len(object_variances)
+                    global_variances.append((global_variance, raster_offset_test, raster_dist_test, line_levels))
+                elif in_raster > len(data["lines"]):
+                    print("cannot be")
 
         from pprint import pprint
         pprint([ (v[0], v[1], v[2]) for v in global_variances ])
@@ -165,8 +171,11 @@ class Levelizer():
         data["raster_offset"] = min_variance[1]
         data["raster_dist"] = min_variance[2]
 
-        for line in data["lines"]:
-            line["level"] = (line["position"] - data["role_top"] - data["raster_offset"]) / data["raster_dist"]
+        for (i, matched_line) in min_variance[3]:
+            for line in data["lines"]:
+                if matched_line["position"] == line["position"]:
+                    line["level"] = i
+                    print("yay level")
 
         return data
 
@@ -199,7 +208,7 @@ class Levelizer():
 
         return (float(reduced[0]) / len(o), float(reduced[1]) / len(o))
 
-    def _object_size(sefl, o):
+    def _object_size(self, o):
         object_x_values = [ c[0] for c in o ]
         object_y_values = [ c[1] for c in o ]
 
@@ -230,12 +239,12 @@ class Levelizer():
         return sum([ self._perc_in_bounds(begin, end, o) for o in objects ]) / len(objects)
 
     def _perc_in_bounds(self, begin, end, object):
-        half_dist = float(end - begin) / 2
+        half_dist = float(abs(end - begin)) / 2
         middle = begin + half_dist
 
-        differences = [ abs(c[1] - middle) for c in object ]
+        difference = abs(self._object_mean(object)[1] - middle)
 
-        return float(max(differences)) / half_dist
+        return difference / half_dist
 
     def _perc_in_bounds_old_and_not_working(self, begin, end, object):
         shift = lambda l: l[1:] + l[:1]

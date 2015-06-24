@@ -48,10 +48,16 @@ for line in l_data["lines"]:
         cv2.line(p_img, p1, p2, (255, 0, 0))
     """
 
+    for line in l_data["lines"]:
+        p1 = (0, line["position"])
+        p2 = (l_data["width"], line["position"])
+        cv2.line(p_img, p1, p2, (0, 255, 0))
+    """
     for i in range(int(l_data["height"] / l_data["raster_dist"])):
         p1 = (0, int(l_data["raster_offset"]+l_data["raster_dist"]*i))
         p2 = (l_data["width"], int(l_data["raster_offset"]+l_data["raster_dist"]*i))
         cv2.line(p_img, p1, p2, (0, 0, 255))
+    """
 
     cv2.imshow('detected role structure', p_img)
     cv2.waitKey(0)
