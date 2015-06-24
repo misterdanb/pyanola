@@ -58,7 +58,8 @@ class Levelizer():
                 if not falling:
                     line = {}
 
-                    line["position"] = i - 1
+                    y_positions = [ p[1] for obj in last_matched for p in obj  ]
+                    line["position"] = sum(y_positions) / len (y_positions)
                     line["objects"] = last_matched
 
                     matched_lines.append(line)
@@ -112,6 +113,7 @@ class Levelizer():
 
         phys_raster_dist= 1. / self.holes_per_inch * 25.4
         raster_dist = data["pixel_per_mm"] * phys_raster_dist
+        data["raster_dist"] = raster_dist
 
         min_raster_dist = raster_dist - self.raster_dist_variance
         max_raster_dist = raster_dist + self.raster_dist_variance
