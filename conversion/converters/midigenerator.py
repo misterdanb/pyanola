@@ -21,7 +21,9 @@ class MidiGenerator():
             start_track = MidiTrack()
             start_track.append(MetaMessage("set_tempo"))
             start_track.append(Message("program_change", program=1))
+            #outfile.tracks.append(start_track)
 
+            track = None
             last_track = start_track
 
             min_level=data["lines"][0]["level"]
@@ -38,7 +40,7 @@ class MidiGenerator():
                         delta = 0
                         last_note = (0,0)
 
-                        for note in line["notes"][1:]:
+                        for note in line["notes"]:
                             delta = int((note[0] - last_note[1]))
                             track.append(Message("note_on", note=pitch, velocity=100, time=delta))
                             delta = int((note[1] - note[0]))
@@ -48,6 +50,6 @@ class MidiGenerator():
 
                         track = merge_tracks([ track, last_track ])
                         last_track = track
-
+                        
             outfile.tracks.append(track)
             outfile.save(self.filename)

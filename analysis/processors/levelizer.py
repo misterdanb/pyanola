@@ -248,20 +248,20 @@ class Levelizer():
         self.logger.info("Entering levelizing stage 4 (assigning note duration)")
 
         for line in data["lines"]:
-            line["notes"]=[]
+            line["notes_pos"]=[]
             for obj in line["objects"]:
                 x_min = min([p[0] for p in obj])
                 x_max = max([p[0] for p in obj])
-                line["notes"].append((x_min,x_max))
+                line["notes_pos"].append((x_min,x_max))
 
-            line["notes"] = sorted(line["notes"], key=lambda note: note[0])
+            line["notes_pos"] = sorted(line["notes_pos"], key=lambda note: note[0])
 
             mm_per_minute = self.role_speed * 30.48
             minutes_per_pixel = 1. / (data["pixel_per_mm"] * mm_per_minute)
             ticks_per_minute = 480 * 120 #480 ticks per beat, 120 beats per minute, midos default values
             ticks_per_pixel = ticks_per_minute * minutes_per_pixel
 
-            line["notes"] = [ ( n[0] * ticks_per_pixel, n[1] * ticks_per_pixel ) for n in line["notes"] ]
+            line["notes"] = [ ( n[0] * ticks_per_pixel, n[1] * ticks_per_pixel ) for n in line["notes_pos"] ]
 
         return data
 
