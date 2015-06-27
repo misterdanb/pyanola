@@ -58,8 +58,7 @@ class Levelizer():
                 if not falling:
                     line = {}
 
-                    y_positions = [ p[1] for obj in last_matched for p in obj  ]
-                    line["position"] = sum(y_positions) / len (y_positions)
+                    line["position"] = i - 1
                     line["objects"] = last_matched
 
                     matched_lines.append(line)
@@ -111,9 +110,8 @@ class Levelizer():
 
         data["pixel_per_mm"] = data["role_height"] / self.phys_role_height
 
-        phys_raster_dist= 1. / self.holes_per_inch * 25.4
+        phys_raster_dist = 1.0 / self.holes_per_inch * 25.4
         raster_dist = data["pixel_per_mm"] * phys_raster_dist
-        data["raster_dist"] = raster_dist
 
         min_raster_dist = raster_dist - self.raster_dist_variance
         max_raster_dist = raster_dist + self.raster_dist_variance
@@ -124,7 +122,10 @@ class Levelizer():
 
         for raster_dist_test in np.linspace(min_raster_dist, max_raster_dist, self.raster_dist_test_resolution):
             for raster_offset_test in np.linspace(0, raster_dist_test, self.raster_offset_test_resolution):
-                object_variances = []
+                variances = []
+                top_variances = []
+                bottom_variances = []
+
                 line_levels = []
 
                 in_raster = 0
@@ -137,46 +138,109 @@ class Levelizer():
                     end = data["role_top"] + raster_offset_test + (i + 1) * raster_dist_test
 
                     best_line = None
-                    best_line_object_variances = None
                     best_line_variance = 0
+                    best_line_top_variance = 0
+                    best_line_bottom_variance = 0
 
                     for line in lines:
                         line_object_variances = [ self._perc_in_bounds(begin, end, o) for o in line["objects"] ]
+                        line_object_top_variances = [ v[0] for v in line_object_variances ]
+                        line_object_bottom_variances = [ v[1] for v in line_object_variances ]
+
+                        summed_line_object_variances = sum([ v[0] + v[1] for v in line_object_variances ])
+                        summed_line_object_top_variances = sum(line_object_top_variances)
+                        summed_line_object_bottom_variances = sum(line_object_bottom_variances)
+
+                        line_variance = summed_line_object_variances / len(line_object_variances)
+                        line_top_variance = summed_line_object_top_variances / len(line_object_top_variances)
+                        line_bottom_variance = summed_line_object_bottom_variances / len(line_object_bottom_variances)
 
                         if best_line == None:
                             best_line = line
-                            best_line_variance = sum(line_object_variances) / len(line_object_variances)
+                            best_line_variance = line_variance
+                            best_line_top_variance = line_top_variance
+                            best_line_bottom_variance = line_bottom_variance
                             best_line_object_variances = line_object_variances
-                        elif sum(line_object_variances) / len(line_object_variances) < best_line_variance:
+                        elif line_variance < best_line_variance:
                             best_line = line
-                            best_line_variance = sum(line_object_variances) / len(line_object_variances)
+                            best_line_variance = line_variance
+                            best_line_top_variance = line_top_variance
+                            best_line_bottom_variance = line_bottom_variance
                             best_line_object_variances = line_object_variances
 
                     if best_line_variance <= 0.9 * raster_dist_test and not best_line == None:
                         #object_variances += best_line_object_variances
-                        object_variances.append(sum(best_line_object_variances) / len(best_line_object_variances))
+                        variances.append(best_line_variance)
+                        top_variances.append(best_line_top_variance)
+                        bottom_variances.append(best_line_bottom_variance)
+
                         line_levels.append((i, best_line))
                         lines.remove(best_line)
                         in_raster += 1
 
+                if len(top_variances) <= 1 or len(bottom_variances) <= 1:
+                    continue
+
+                top_variances_mean = sum(top_variances) / len(top_variances)
+
+                top_variances_a = top_variances[1:]
+                top_variances_b = top_variances[:-1]
+                top_variances_diffed = list(map(operator.sub, top_variances_a, top_variances_b))
+                top_variances_diffed = [ abs(t) for t in top_variances_diffed ]
+                top_variances_diffed_mean = sum(top_variances_diffed) / len(top_variances_diffed)
+
+                bottom_variances_mean = sum(bottom_variances) / len(bottom_variances)
+
+                bottom_variances_a = bottom_variances[1:]
+                bottom_variances_b = bottom_variances[:-1]
+                bottom_variances_diffed = list(map(operator.sub, bottom_variances_a, bottom_variances_b))
+                bottom_variances_diffed = [ abs(b) for b in bottom_variances_diffed ]
+                bottom_variances_diffed_mean = sum(bottom_variances_diffed) / len(bottom_variances_diffed)
+
                 if in_raster > 0.8 * len(data["lines"]):
-                    global_variance = sum(object_variances) / len(object_variances)
-                    global_variances.append((global_variance, raster_offset_test, raster_dist_test, line_levels))
+                    global_variance = sum(variances) / len(variances)
+                    global_variances.append((global_variance,
+                                             top_variances_mean,
+                                             top_variances_diffed_mean,
+                                             bottom_variances_mean,
+                                             bottom_variances_diffed_mean,
+                                             raster_offset_test,
+                                             raster_dist_test,
+                                             line_levels))
                     print("  in_raster: " + str(in_raster))
                     print("  lines: " + str(len(data["lines"])))
                     print("  raster_dist (given): " + str(raster_dist))
                     print("  raster_dist (tested): " + str(raster_dist_test))
 
-        good_value = sum([ v for (v, o, d, l) in global_variances ]) / len(global_variances)
-        min_variance = min(global_variances, key=lambda (v, o, d, l): abs(v - good_value))
+        global_variances_a = sorted(global_variances, key=lambda (v, t, td, b, bd, o, d, l): t)
+        global_variances_b = sorted(global_variances, key=lambda (v, t, td, b, bd, o, d, l): b)
 
-        data["raster_offset"] = min_variance[1]
-        data["raster_dist"] = min_variance[2]
+        print(len(global_variances))
+        #global_variances = [ (v, t, b, o, d, l) for (v, t, b, o, d, l) in global_variances if t < 0.5 ]
+        global_variances = sorted(global_variances, key=lambda (v, t, td, b, bd, o, d, l): td)
+        global_variances_a = global_variances[:len(global_variances) / 2]
+        print(len(global_variances_a))
+        #global_variances = [ (v, t, b, o, d, l) for (v, t, b, o, d, l) in global_variances if b < 0.5 ]
+        global_variances = sorted(global_variances, key=lambda (v, t, td, b, bd, o, d, l): bd)
+        global_variances_b = global_variances[:len(global_variances) / 2]
+        print(len(global_variances_b))
 
-        for (i, matched_line) in min_variance[3]:
+        global_variances = [ g2 for g1 in global_variances_a for g2 in global_variances_b if g1 == g2 ]
+        print(len(global_variances))
+
+        from pprint import pprint
+        pprint([ (t, b, o, d) for (v, t, td, b, bd, o, d, l) in global_variances ])
+
+        good_value = sum([ v for (v, t, td, b, bd, o, d, l) in global_variances ]) / len(global_variances)
+        min_variance = min(global_variances, key=lambda (v, t, td, b, bd, o, d, l): abs(v - good_value))
+
+        data["raster_offset"] = min_variance[5]
+        data["raster_dist"] = min_variance[6]
+
+        for (i, matched_line) in min_variance[7]:
             for line in data["lines"]:
                 if matched_line["position"] == line["position"]:
-                    line["level"] = i + 10
+                    line["level"] = i + 10 #- 30
 
         return data
 
@@ -246,7 +310,7 @@ class Levelizer():
         difference_top = min([ abs(c[1] - begin) for c in object ])
         difference_bottom = min([ abs(c[1] - end) for c in object ])
 
-        return difference_top + difference_bottom
+        return (difference_top, difference_bottom)
 
     def _perc_in_bounds_old_and_not_working(self, begin, end, object):
         shift = lambda l: l[1:] + l[:1]
