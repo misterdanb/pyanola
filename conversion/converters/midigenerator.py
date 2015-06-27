@@ -24,25 +24,30 @@ class MidiGenerator():
 
             last_track = start_track
 
-            for line in data["lines"][self.control_top:len(data["lines"])-self.control_bottom]:
+            min_level=data["lines"][0]["level"]
+            max_level=data["lines"][-1]["level"]
+
+            for line in data["lines"]:
                 # only add those who have a level attached
                 if "level" in line:
-                    track = MidiTrack()
-                    pitch = int(self.highest_tone-(line["level"]-self.control_top))
+                    if min_level+self.control_top <= line["level"] <= max_level-self.control_bottom:
 
-                    delta = 0
-                    last_note = (0,0)
+                        track = MidiTrack()
+                        pitch = int(self.highest_tone-(line["level"]-self.control_top))
 
-                    for note in line["notes"][1:]:
-                        delta = int((note[0] - last_note[1]))
-                        track.append(Message("note_on", note=pitch, velocity=100, time=delta))
-                        delta = int((note[1] - note[0]))
-                        track.append(Message("note_off", note=pitch, velocity=100, time=delta))
+                        delta = 0
+                        last_note = (0,0)
 
-                        last_note = note
+                        for note in line["notes"][1:]:
+                            delta = int((note[0] - last_note[1]))
+                            track.append(Message("note_on", note=pitch, velocity=100, time=delta))
+                            delta = int((note[1] - note[0]))
+                            track.append(Message("note_off", note=pitch, velocity=100, time=delta))
 
-                    track = merge_tracks([ track, last_track ])
-                    last_track = track
+                            last_note = note
+
+                        track = merge_tracks([ track, last_track ])
+                        last_track = track
 
             outfile.tracks.append(track)
             outfile.save(self.filename)
