@@ -50,6 +50,6 @@ class MidiGenerator():
 
                         track = merge_tracks([ track, last_track ])
                         last_track = track
-                        
-            outfile.tracks.append(track)
-            outfile.save(self.filename)
+            if track!=None: 
+                outfile.tracks.append(track)
+                outfile.save(self.filename)

@@ -31,6 +31,8 @@ m_data = midi_generator.create(l_data)
 #cv2.waitKey(0)
 
 p_img_old=copy.deepcopy(p_img)
+last_level=0
+last_position=l_data["lines"][0]["position"]
 
 for line in l_data["lines"]:
     print("##############################################")
@@ -44,9 +46,17 @@ for line in l_data["lines"]:
 
     p_img=copy.deepcopy(p_img_old)
 
-    p1 = (0, line["position"])
-    p2 = (l_data["width"], line["position"])
+    p1 = (0, int(line["position"]+.5))
+    p2 = (l_data["width"], int(line["position"]+.5))
     cv2.line(p_img, p1, p2, (0, 255, 0))
+    p1 = (0, int(last_position+.5))
+    p2 = (l_data["width"], int(last_position+.5))
+    cv2.line(p_img, p1, p2, (0, 255, 0))
+
+    for i in range(line["level"]-last_level+1):
+        p1 = (0,int(last_position+i*l_data["raster_dist"]+.5))
+        p2 = (l_data["width"],int(last_position+i*l_data["raster_dist"]+.5))
+        cv2.line(p_img, p1, p2, (0, 0, 255))
 
     for c in line["objects"]:
         npc = np.array([ [[e[0], e[1]]] for e in c ])
@@ -61,6 +71,10 @@ for line in l_data["lines"]:
         cv2.line(p_img, p1, p2, (255, 0, 0))
         cv2.imshow('detected role structure', p_img)
         cv2.waitKey(0)
+
+        
+    last_level=line["level"]
+    last_position=line["position"]
 
     """
     for i in range(int(l_data["height"] / l_data["raster_dist"])):

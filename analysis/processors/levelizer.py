@@ -5,6 +5,7 @@ import numpy as np
 import operator
 import log
 import cv2
+from math import copysign
 
 class Levelizer():
     CONFIG_FILE = "levelizer.conf"
@@ -20,9 +21,8 @@ class Levelizer():
 
         self.scanner_height_scale = self.config["scanner"]["height_scale"]
         self.scanner_step = self.config["scanner"]["step"]
-        self.raster_dist_variance = self.config["level_assigner"]["dist_variance"]
-        self.raster_offset_test_resolution = self.config["level_assigner"]["offset_test_resolution"]
-        self.raster_dist_test_resolution = self.config["level_assigner"]["dist_test_resolution"]
+        self.iterations = self.config["level_assigner"]["iterations"]
+        self.exponent = self.config["level_assigner"]["mean_weight_exp"]
 
         self.specs = toml.load(Levelizer.SPECS_FILE)
         self.phys_role_height = self.specs["role"]["height"]
@@ -58,7 +58,13 @@ class Levelizer():
                 if not falling:
                     line = {}
 
-                    line["position"] = i - 1
+                    obj_y_means=[]
+
+                    for obj in last_matched:
+                        obj_y_positions=[ p[1] for p in obj ]
+                        obj_y_means.append(sum(obj_y_positions) / float(len(obj_y_positions)))
+
+                    line["position"] = sum(obj_y_means) / float(len(obj_y_means))
                     line["objects"] = last_matched
 
                     matched_lines.append(line)
@@ -113,136 +119,51 @@ class Levelizer():
         phys_raster_dist = 1.0 / self.holes_per_inch * 25.4
         raster_dist = data["pixel_per_mm"] * phys_raster_dist
 
-        min_raster_dist = raster_dist - self.raster_dist_variance
-        max_raster_dist = raster_dist + self.raster_dist_variance
+        last_raster_dist=raster_dist
+        last_raster_offset=data["lines"][0]["position"]
+        data["lines"][0]["level"]=0
+        last_level=0
+        for line in data["lines"][1:]:
+            line["level"]=last_level+(line["position"]-last_raster_offset)/raster_dist
+            last_level=line["level"]
+            last_raster_offset=line["position"]
 
-        matched_raster_offset, matched_raster_dist = None, None
-
-        global_variances = []
-
-        for raster_dist_test in np.linspace(min_raster_dist, max_raster_dist, self.raster_dist_test_resolution):
-            for raster_offset_test in np.linspace(0, raster_dist_test, self.raster_offset_test_resolution):
-                variances = []
-                top_variances = []
-                bottom_variances = []
-
-                line_levels = []
-
-                in_raster = 0
-
-                # working copy
-                lines = list(data["lines"])
-
-                for i in range(int(data["role_height"] / raster_dist_test)):
-                    begin = data["role_top"] + raster_offset_test + i * raster_dist_test
-                    end = data["role_top"] + raster_offset_test + (i + 1) * raster_dist_test
-
-                    best_line = None
-                    best_line_variance = 0
-                    best_line_top_variance = 0
-                    best_line_bottom_variance = 0
-
-                    for line in lines:
-                        line_object_variances = [ self._perc_in_bounds(begin, end, o) for o in line["objects"] ]
-                        line_object_top_variances = [ v[0] for v in line_object_variances ]
-                        line_object_bottom_variances = [ v[1] for v in line_object_variances ]
-
-                        summed_line_object_variances = sum([ v[0] + v[1] for v in line_object_variances ])
-                        summed_line_object_top_variances = sum(line_object_top_variances)
-                        summed_line_object_bottom_variances = sum(line_object_bottom_variances)
-
-                        line_variance = summed_line_object_variances / len(line_object_variances)
-                        line_top_variance = summed_line_object_top_variances / len(line_object_top_variances)
-                        line_bottom_variance = summed_line_object_bottom_variances / len(line_object_bottom_variances)
-
-                        if best_line == None:
-                            best_line = line
-                            best_line_variance = line_variance
-                            best_line_top_variance = line_top_variance
-                            best_line_bottom_variance = line_bottom_variance
-                            best_line_object_variances = line_object_variances
-                        elif line_variance < best_line_variance:
-                            best_line = line
-                            best_line_variance = line_variance
-                            best_line_top_variance = line_top_variance
-                            best_line_bottom_variance = line_bottom_variance
-                            best_line_object_variances = line_object_variances
-
-                    if best_line_variance <= 0.9 * raster_dist_test and not best_line == None:
-                        #object_variances += best_line_object_variances
-                        variances.append(best_line_variance)
-                        top_variances.append(best_line_top_variance)
-                        bottom_variances.append(best_line_bottom_variance)
-
-                        line_levels.append((i, best_line))
-                        lines.remove(best_line)
-                        in_raster += 1
-
-                if len(top_variances) <= 1 or len(bottom_variances) <= 1:
-                    continue
-
-                top_variances_mean = sum(top_variances) / len(top_variances)
-
-                top_variances_a = top_variances[1:]
-                top_variances_b = top_variances[:-1]
-                top_variances_diffed = list(map(operator.sub, top_variances_a, top_variances_b))
-                top_variances_diffed = [ abs(t) for t in top_variances_diffed ]
-                top_variances_diffed_mean = sum(top_variances_diffed) / len(top_variances_diffed)
-
-                bottom_variances_mean = sum(bottom_variances) / len(bottom_variances)
-
-                bottom_variances_a = bottom_variances[1:]
-                bottom_variances_b = bottom_variances[:-1]
-                bottom_variances_diffed = list(map(operator.sub, bottom_variances_a, bottom_variances_b))
-                bottom_variances_diffed = [ abs(b) for b in bottom_variances_diffed ]
-                bottom_variances_diffed_mean = sum(bottom_variances_diffed) / len(bottom_variances_diffed)
-
-                if in_raster > 0.8 * len(data["lines"]):
-                    global_variance = sum(variances) / len(variances)
-                    global_variances.append((global_variance,
-                                             top_variances_mean,
-                                             top_variances_diffed_mean,
-                                             bottom_variances_mean,
-                                             bottom_variances_diffed_mean,
-                                             raster_offset_test,
-                                             raster_dist_test,
-                                             line_levels))
-                    print("  in_raster: " + str(in_raster))
-                    print("  lines: " + str(len(data["lines"])))
-                    print("  raster_dist (given): " + str(raster_dist))
-                    print("  raster_dist (tested): " + str(raster_dist_test))
-
-        global_variances_a = sorted(global_variances, key=lambda (v, t, td, b, bd, o, d, l): t)
-        global_variances_b = sorted(global_variances, key=lambda (v, t, td, b, bd, o, d, l): b)
-
-        print(len(global_variances))
-        #global_variances = [ (v, t, b, o, d, l) for (v, t, b, o, d, l) in global_variances if t < 0.5 ]
-        global_variances = sorted(global_variances, key=lambda (v, t, td, b, bd, o, d, l): td)
-        global_variances_a = global_variances[:len(global_variances) / 2]
-        print(len(global_variances_a))
-        #global_variances = [ (v, t, b, o, d, l) for (v, t, b, o, d, l) in global_variances if b < 0.5 ]
-        global_variances = sorted(global_variances, key=lambda (v, t, td, b, bd, o, d, l): bd)
-        global_variances_b = global_variances[:len(global_variances) / 2]
-        print(len(global_variances_b))
-
-        global_variances = [ g2 for g1 in global_variances_a for g2 in global_variances_b if g1 == g2 ]
-        print(len(global_variances))
-
-        from pprint import pprint
-        pprint([ (t, b, o, d) for (v, t, td, b, bd, o, d, l) in global_variances ])
-
-        good_value = sum([ v for (v, t, td, b, bd, o, d, l) in global_variances ]) / len(global_variances)
-        min_variance = min(global_variances, key=lambda (v, t, td, b, bd, o, d, l): abs(v - good_value))
-
-        data["raster_offset"] = min_variance[5]
-        data["raster_dist"] = min_variance[6]
-
-        for (i, matched_line) in min_variance[7]:
+        for i in range(self.iterations):
+            real_raster_dists=[]
             for line in data["lines"]:
-                if matched_line["position"] == line["position"]:
-                    line["level"] = i + 10 #- 30
+                line["levels"]=[]
 
+            lines_list=[ (l1,l2) for l1 in data["lines"] for l2 in data["lines"] if l1["position"] > l2["position"] ]
+            lines_sorted=sorted(lines_list, key=lambda (l1,l2): l1["position"]-l2["position"])
+
+            print("Iteration " + str(i) + ":")
+            print("Raster dist:"+ str(raster_dist))
+
+            for (line1,line2) in lines_sorted:
+                diff=line1["position"]-line2["position"]
+                level=diff/raster_dist
+                for line in data["lines"]:
+                    if line1==line:
+                        line["levels"].append(level+line2["level"])
+                    if line2==line:
+                        line["levels"].append(line1["level"]-level)
+                level=int(level+.5)
+                if level!=0:
+                    real_raster_dists.append(diff/level)
+            if len(real_raster_dists)!=0:
+                raster_dist=sum(real_raster_dists)/len(real_raster_dists)
+
+            for line in data["lines"][1:]:
+                weights=map(lambda x:x**self.exponent, reversed(range(len(line["levels"]))))
+                weights=map(lambda x:x/float(sum(weights)),weights)
+                mean=0
+                for j in range(len(line["levels"])):
+                    mean+=line["levels"][j]*weights[j]
+                line["level"]=int(mean+.5)
+                #line["level"]=int(np.median(line["levels"])+.5)
+        data["raster_dist"]=raster_dist
         return data
+
 
     def _process_stage_4(self, data):
         self.logger.info("Entering levelizing stage 4 (assigning note duration)")
@@ -290,94 +211,6 @@ class Levelizer():
                 matched.append(o)
 
         return matched
-
-    def _all_in_bounds(self, begin, end, objects, thresh):
-        objects_in_bounds = 0
-
-        for o in objects:
-            if self._in_bounds(begin, end, o):
-                objects_in_bounds += 1
-
-        return float(objects_in_bounds) / float(len(objects)) > thresh
-
-    def _perc_all_in_bounds(self, begin, end, objects):
-        return sum([ self._perc_in_bounds(begin, end, o) for o in objects ]) / len(objects)
-
-    def _perc_in_bounds(self, begin, end, object):
-        half_dist = float(abs(end - begin)) / 2
-        middle = begin + half_dist
-
-        difference_top = min([ abs(c[1] - begin) for c in object ])
-        difference_bottom = min([ abs(c[1] - end) for c in object ])
-
-        return (difference_top, difference_bottom)
-
-    def _perc_in_bounds_old_and_not_working(self, begin, end, object):
-        shift = lambda l: l[1:] + l[:1]
-
-        parameter = lambda l, p1, p2: float(l - p1[1]) / float(p2[1] - p1[1])
-        intersect = lambda l, p1, p2: (int(p1[0] + parameter(l, p1, p2) * (p2[0] - p1[0])),
-                                       int(p1[1] + parameter(l, p1, p2) * (p2[1] - p1[1])))
-
-        out = False
-        in_out_lines = []
-
-        for i in range(len(object)):
-            if object[i - 1][1] < begin and object[i][1] >= begin:
-                in_out_lines.append(("oi", begin, i - 1, i))
-            elif object[i - 1][1] >= begin and object[i][1] < begin:
-                in_out_lines.append(("io", begin, i - 1, i))
-            elif object[i - 1][1] < end and object[i][1] >= end:
-                in_out_lines.append(("io", end, i - 1, i))
-            elif object[i - 1][1] >= end and object[i][1] < end:
-                in_out_lines.append(("oi", end, i - 1, i))
-
-        if len(in_out_lines) == 0:
-            #return (1.0, object)
-            # test
-            return (1.0, [(0, 0)])
-        elif len(in_out_lines) % 2 == 1:
-            raise("There is an algorithmic error in _perc_in_bounds.")
-
-        if in_out_lines[0][0] == "oi":
-            in_out_lines = shift(in_out_lines)
-
-        in_out_lines = [ (in_out_lines[i], in_out_lines[i + 1]) for i in range(0, len(in_out_lines), 2) ]
-
-        # make a working copy of the object
-        new_object = list(object)
-        index_shift = 0
-
-        for (bound_io, bound_oi) in in_out_lines:
-            p1_io = object[bound_io[2]]
-            p2_io = object[bound_io[3]]
-
-            p1_oi = object[bound_oi[2]]
-            p2_oi = object[bound_oi[3]]
-
-            p_int_io = intersect(bound_oi[1], p1_io, p2_io)
-            p_int_oi = intersect(bound_io[1], p1_oi, p2_oi)
-
-            new_object[bound_io[3]] = p_int_io
-            new_object[bound_oi[2]] = p_int_oi
-
-            index_to = bound_io[3] - index_shift
-            index_from = bound_oi[2] - index_shift
-
-            to_p_int_io = new_object[:index_to + 1]
-            from_p_int_oi = [] if index_from == 0 else new_object[index_from:]
-
-            new_object = to_p_int_io + from_p_int_oi
-            index_shift += bound_oi[2] - bound_io[3] - 1
-
-        area = cv2.contourArea(np.asarray(object))
-        new_area = cv2.contourArea(np.asarray(new_object))
-
-        print("area before: " + str(area))
-        print("area after: " + str(new_area))
-        print("-----------------------------")
-
-        return (new_area / area, new_object)
 
     def _in_bounds(self, begin, end, object):
         for coord in object:
