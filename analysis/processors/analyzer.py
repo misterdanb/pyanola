@@ -102,6 +102,45 @@ class Analyzer():
 
         bg_mean = [ pixel_sum[0] / pixel_count, pixel_sum[1] / pixel_count, pixel_sum[2] / pixel_count ]
 
+        width = img.shape[1]
+        height = img.shape[0]
+
+        top_left=max(sorted_bars[0], key=lambda p:p[0][1]-p[0][0])[0]
+        top_right=max(sorted_bars[0], key=lambda p:p[0][1]+p[0][0])[0]
+
+        bottom_left=min(sorted_bars[1], key=lambda p:p[0][1]+p[0][0])[0]
+        bottom_right=min(sorted_bars[1], key=lambda p:p[0][1]-p[0][0])[0]
+
+        bars_y = [ [ c[0][1] for c in b ] for b in sorted_bars ]
+
+        distorted = np.array([top_left,
+                              top_right,
+                              bottom_right,
+                              bottom_left],dtype="float32")
+       
+        top_left[1]=.5*(top_left[1]+top_right[1])
+        top_right[1]=top_left[1]
+
+        bottom_left[1]=.5*(bottom_left[1]+bottom_right[1])
+        bottom_right[1]=bottom_left[1]
+
+        correct = np.array([top_left,
+                              top_right,
+                              bottom_right,
+                              bottom_left],dtype="float32")
+
+        mat=cv2.getPerspectiveTransform(distorted,correct)
+
+        if self.debug:
+            cv2.imshow("stripped image", img)
+            cv2.waitKey(0)
+
+        img=cv2.warpPerspective(img,mat,(width,height))
+
+        if self.debug:
+            cv2.imshow("stripped image", img)
+            cv2.waitKey(0)
+
         #
         # find, given the background mean color, the contours, which are candidates
         # to be notes
@@ -142,8 +181,9 @@ class Analyzer():
 
         data = {}
 
-        data["width"] = img.shape[1]
-        data["height"] = img.shape[0]
+        data["width"] = width
+        data["height"] = height
+
 
         if role_height != None:
             data["role_height"] = role_height

@@ -118,6 +118,20 @@ class Levelizer():
 
         phys_raster_dist = 1.0 / self.holes_per_inch * 25.4
         raster_dist = data["pixel_per_mm"] * phys_raster_dist
+        """
+        for i in range(10):
+            lines_list=[ (l1,l2) for l1 in data["lines"] for l2 in data["lines"] if l1["position"] > l2["position"] ]
+            lines_sorted=sorted(lines_list, key=lambda (l1,l2): l1["position"]-l2["position"])
+            
+            for (l1,l2) in lines_sorted:
+                diff=l1["position"]-l2["position"]
+                if diff<raster_dist/1.1:
+                    data=self._merge_lines(l1,l2,data)
+                else:
+                    break
+        """
+        lines_list=[ (l1,l2) for l1 in data["lines"] for l2 in data["lines"] if l1["position"] > l2["position"] ]
+        lines_sorted=sorted(lines_list, key=lambda (l1,l2): l1["position"]-l2["position"])
 
         last_raster_dist=raster_dist
         last_raster_offset=data["lines"][0]["position"]
@@ -132,9 +146,6 @@ class Levelizer():
             real_raster_dists=[]
             for line in data["lines"]:
                 line["levels"]=[]
-
-            lines_list=[ (l1,l2) for l1 in data["lines"] for l2 in data["lines"] if l1["position"] > l2["position"] ]
-            lines_sorted=sorted(lines_list, key=lambda (l1,l2): l1["position"]-l2["position"])
 
             print("Iteration " + str(i) + ":")
             print("Raster dist:"+ str(raster_dist))
@@ -218,3 +229,21 @@ class Levelizer():
                 return False
 
         return True
+
+    def _merge_lines(self, l1, l2, data):
+        for line in data["lines"]:
+            if l2==line:
+                line1=line
+            if l1==line:
+                line["objects"]+=line1["objects"]
+                line["objects"]=sorted(line["objects"], key=lambda x: x[0][0])
+                data["lines"].remove(l2)
+
+                obj_y_means=[]
+                for obj in line["objects"]:
+                    print(obj)
+                    obj_y_positions=[ p[1] for p in obj ]
+                    obj_y_means.append(sum(obj_y_positions) / float(len(obj_y_positions)))
+
+                line["position"] = sum(obj_y_means) / float(len(obj_y_means))
+        return data
