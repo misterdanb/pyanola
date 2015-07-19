@@ -1,0 +1,60 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" 
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+	<head>
+		<meta http-equiv="Content-Type" content="text/html;" />
+		{% load staticfiles %}
+		<script type="text/javascript" src="{% static 'web/js/jquery-2.1.4.min.js' %}"></script>
+		<script type="text/javascript" src="{% static 'web/js/jquery.simplyscroll.js' %}"></script>
+		<script type="text/javascript" src="{% static 'web/js/pyanola.js' %}"></script>
+		<title>Pyanola</title>
+		<link rel="stylesheet" type="text/css" href="{% static 'web/css/styles.css' %}">
+	</head>
+	<body>
+	<div id="overlay"></div>
+	   <div id="Container">
+	      	<div id="Header">
+	      		<div id="Logo">
+	      			<img src="{% static 'web/images/logo.jpg' %}" align="middle">
+	      		</div>
+	      		<div id="HeaderButtonWrap">
+	      			<div id="HeaderButton">
+	      				<button onmousedown="toggleOverlay()">Runter</button>
+	      			</div>
+	      		</div>
+	    	</div>
+	    	<div id="RollScroll">
+	      		<ul id="scroller">
+					<li><img src="{{pyanoroll.roleimage.url}}" height="800"></li>
+				</ul>   
+	    	</div>
+	      	<div id="MetaData">
+	            <div id="MetaShort">
+					<dl class="floated">
+		  				<dt>Titel</dt>
+		  				<dd>{{ pyanoroll.titel_text }}</dd>
+		 				<dt>Komponist</dt>
+		 				<dd>{{ pyanoroll.composer_text }}</dd>
+		  				<dt>Rollenart</dt>
+		  				<dd>{{ pyanoroll.roletype_text }}</dd>
+		  				<dt>Hersteller</dt>
+		  				<dd>{{ pyanoroll.producer_text }}</dd>
+					</dl>
+	            </div>	       
+	       	</div>
+	       	<div id="specialBox">
+	      		<div id="specialBoxButton">
+	      			<button onmousedown="toggleOverlay()">Hoch</button>
+	      		</div>
+	      		<div id="searchBox">
+	      			<form action="">
+	  					Search: <input type="text" name="search">
+	  				<input type="submit" value="Submit">
+	      		</div>
+	      		<div id="resultBox">
+	      		
+	      		</div>
+			</div>	
+	   	</div>	 
+	</body>
+</html>

@@ -1,0 +1,233 @@
+html, body
+{
+    height: 100%;
+}
+
+* {
+    margin : 0;
+    padding : 0;
+}
+
+div#Container {
+    overflow: hidden; 
+    width: 100%;
+    height: 100%;
+    margin: 0px; 
+}
+
+div#Header { 
+    overflow: hidden; 
+    width: 100%;
+    height:8%;
+    margin: 0px;
+    padding : 0px; 
+}
+
+div#Logo{
+    width:10%;
+    height: 100%;
+    margin: 0px;
+    padding : 0px; 
+    float:left;
+    background:#fff;
+}
+
+div#Logo > img {
+    top: 10%;
+    position: relative;
+    width: auto;
+    height : auto;
+    max-height: 100%;
+    max-width: 100%;
+}
+
+div#HeaderButtonWrap{
+    width:90%;
+    height: 100%;
+    margin: 0px;
+    padding : 0px; 
+    float:right;
+    background:#fff;
+}
+
+div#HeaderButton{
+    margin-left: 42.5% ;
+    margin-right: auto;
+    margin-top: 2%; 
+    width:5%;
+    height: 100%;
+    padding : 0px; 
+}
+
+div#RollScroll { 
+    float: left;
+    color: #Faa;
+    margin: 0px;
+    padding: 0px;
+    width: 100%;
+    height: 400px;
+}
+
+div#MetaData { 
+    float: left;
+    margin: 0px;
+    padding: 0px;
+    width: 100%;
+    height: 25%;
+    clear: both;
+}
+
+div#MetaShort { 
+    margin: 0px;
+    padding: 0px;
+    width: 50%;
+    clear: both;
+}
+
+div#overlay {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10;
+    background-color: rgba(0,0,0,0.5); /*dim the background*/
+}
+
+div#specialBox {
+    display: none;
+    position: relative;
+    z-index: 11;
+    margin: 0px auto 0px auto;
+    width: 75%; 
+    height: 75%;
+    background-color: rgba(0,0,0,0.7);
+}
+
+div#specialBoxButton {
+    position: absolute;
+    margin-left: 47.5% ;
+    margin-right: auto;
+    margin-top: 2%; 
+    width:5%;
+    height: 100%;
+    padding : 0px; 
+}
+
+div#searchBox {
+    color: white;
+    position: absolute;
+    margin-left: 10%;
+    margin-right: auto;
+    margin-top: 2%; 
+    width:5%;
+    height: 100%;
+    padding : 0px; 
+}
+
+dl {
+    padding: 0.5em;
+}
+
+dt {
+    float: left;
+    clear: left;
+    width: 10%;
+    text-align: right;
+    font-weight: bold;
+    color: grey;
+    font-size: 150%
+}
+
+dt:after {
+    content: ":";
+}
+
+dd {
+    font-size: 150%;
+    margin: 0 0 0 200px;
+    padding: 0 0 2em 0;
+}
+
+.simply-scroll-container { /* Container DIV - automatically generated */
+    position: relative;
+}
+
+.simply-scroll-clip { /* Clip DIV - automatically generated */
+    position: relative;
+    overflow: hidden;
+}
+
+.simply-scroll-list { /* UL/OL/DIV - the element that simplyScroll is inited on */
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+    
+.simply-scroll-list li {
+    padding: 0;
+    margin: 0;
+    list-style: none;
+}
+    
+.simply-scroll-list li img {
+    border: none;
+    display: block;
+    height: 400px;
+    width: auto;
+    max-height: 100%;
+    max-width: 100%;
+}
+    
+.simply-scroll-btn {
+    position: absolute;
+    background-image: url(../images/buttons.png);
+    width: 42px;
+    height: 44px;
+    z-index:2;
+    cursor: pointer;
+}
+
+.simply-scroll-btn-pause {
+    right: 50%;
+    bottom: 50%;
+    background-position: -168px -44px;
+}
+
+.simply-scroll-btn-pause:hover, .simply-scroll-btn-pause:focus {
+    background-position: -168px -88px;
+}
+
+.simply-scroll-btn-pause.active {
+    background-position: -84px -44px;
+}
+
+.simply-scroll-btn-pause.active:hover, .simply-scroll-btn-pause.active:focus {
+    background-position: -84px -88px;
+}
+
+.simply-scroll { /* Customisable base class for style override DIV */
+    width: 100%;
+    height: 400px;
+}
+
+.simply-scroll .simply-scroll-clip {
+    width: 100%;
+   height: 400px;
+}
+
+.simply-scroll .simply-scroll-list {}
+        
+.simply-scroll .simply-scroll-list li {
+    float: left;
+    width: 100%;
+    height: 400px;
+}
+
+.simply-scroll .simply-scroll-list li img {	
+}
+    
+.simply-scroll .simply-scroll-btn {}
+ 

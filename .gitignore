@@ -55,3 +55,6 @@ docs/_build/
 
 # PyBuilder
 target/
+pyano/pyano/settings.py
+pyano/db.sqlite3
+pyano/web/static/web/images/test_GpepnPh.jpg
