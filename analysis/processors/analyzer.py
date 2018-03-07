@@ -50,7 +50,7 @@ class Analyzer():
 
         _, threshed = cv2.threshold(gray_img, thresh_gray, 255, mode)
 
-        basic_contours, _ = cv2.findContours(threshed, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        _, basic_contours, _ = cv2.findContours(threshed, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         basic_contours = [ cv2.convexHull(c) for c in basic_contours ]
 
         basic_mean_area = reduce(operator.add, [ cv2.contourArea(c) for c in basic_contours ]) / len(basic_contours)
@@ -73,6 +73,7 @@ class Analyzer():
             role_height = role_bottom-role_top
 
         if self.debug:
+            cv2.drawContours(threshed, basic_contours, 0, (0, 255, 0), -1)
             cv2.imshow("threshed image", threshed)
             cv2.waitKey(0)
 
@@ -118,6 +119,13 @@ class Analyzer():
                               bottom_right,
                               bottom_left],dtype="float32")
        
+        """ 
+        if self.debug:
+            cv2.drawContours(threshed, distorted, 0, (0, 255, 0), -1)
+            cv2.imshow("threshed image", threshed)
+            cv2.waitKey(0)
+        """
+
         top_left[1]=.5*(top_left[1]+top_right[1])
         top_right[1]=top_left[1]
 
@@ -159,14 +167,18 @@ class Analyzer():
             cv2.waitKey(0)
 
         if "blur_amount" in self.config["thresholds"]:
+            
             imgStripped = cv2.GaussianBlur(imgStripped, (self.config["thresholds"]["blur_amount"], 1), 0)
+            if self.debug:
+                cv2.imshow("blurred image", imgStripped)
+                cv2.waitKey(0)
             _, imgStripped = cv2.threshold(imgStripped, self.config["thresholds"]["blur_threshold"], 255, cv2.THRESH_BINARY)
 
         if self.debug:
             cv2.imshow("stripped image", imgStripped)
             cv2.waitKey(0)
 
-        contours, h = cv2.findContours(imgStripped, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        _, contours, h = cv2.findContours(imgStripped, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         contours = [ cv2.convexHull(c) for c in contours ]
 
         mean_area = reduce(operator.add, [ cv2.contourArea(c) for c in contours ]) / len(contours)
@@ -208,7 +220,7 @@ class Analyzer():
             cv2.imshow("canny image", edges)
             cv2.waitKey(0)
 
-        contours, h = cv2.findContours(edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+        _, contours, h = cv2.findContours(edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
 
         for contour in contours:
             cv2.drawContours(img, [contour], 0, (0, 0, 255), 3)
